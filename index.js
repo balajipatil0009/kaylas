@@ -1,6 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const fs = require("fs");
+
 const crypto = require("crypto");
 const { createClient } = require("@supabase/supabase-js");
 
@@ -70,6 +70,7 @@ async function storeToSupabase(lead) {
 app.post("/kylas-webhook", async (req, res) => {
     try {
         const payload = req.body;
+        console.log("Request Body:", JSON.stringify(payload, null, 2));
 
         // Basic validation
         if (!payload || !payload.event) {
@@ -78,11 +79,9 @@ app.post("/kylas-webhook", async (req, res) => {
 
         console.log("Webhook received:", payload.event);
 
-        // Log raw payload (for debugging)
-        
 
         // Handle specific events
-        if (payload.event === "LEAD_UPDATED") {
+        if (payload.event === "lead.created") {
             const lead = payload.data;
 
             console.log("New Lead:");
