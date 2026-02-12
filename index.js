@@ -49,7 +49,7 @@ async function storeToSupabase(lead) {
         // Insert to Supabase
         const { data, error } = await supabase
             .from("leads")
-            .insert([leadData]);
+            .upsert([leadData], { onConflict: "lead_id" });
 
         if (error) {
             console.error("Supabase error:", error);
