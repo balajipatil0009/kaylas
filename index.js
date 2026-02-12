@@ -79,13 +79,10 @@ app.post("/kylas-webhook", async (req, res) => {
         console.log("Webhook received:", payload.event);
 
         // Log raw payload (for debugging)
-        fs.appendFileSync(
-            "kylas_log.txt",
-            JSON.stringify(payload) + "\n"
-        );
+        
 
         // Handle specific events
-        if (payload.event === "lead.created") {
+        if (payload.event === "LEAD_UPDATED") {
             const lead = payload.data;
 
             console.log("New Lead:");
