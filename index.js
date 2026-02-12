@@ -12,6 +12,18 @@ const supabase = createClient(
     process.env.SUPABASE_ANON_KEY
 );
 
+// Keep process alive for debugging
+setInterval(() => { }, 1000 * 60 * 60);
+
+// Global Error Handlers
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION:', reason);
+});
+
 // Middleware to parse JSON
 app.use(express.json());
 
@@ -42,6 +54,8 @@ async function storeToSupabase(lead) {
             last_name: lead.last_name,
             email_hash: hashedEmail,
             phone_hash: hashedPhone,
+            email: lead.email,      // Store actual email
+            mobile: lead.mobile,    // Store actual mobile
             stage: lead.stage,
             created_at: new Date().toISOString()
         };
