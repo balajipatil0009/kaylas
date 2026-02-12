@@ -1,0 +1,21 @@
+# Dependencies
+/node_modules
+/jspm_packages
+
+# Testing
+/test_coverage/
+
+# Production
+/build
+/dist
+/npm-debug.log
+.nyc_output
+
+# Environment
+.env
+
+# Optional stuff
+.DS_Store
+*.orig
+package-lock.json # managed by npm, remove if you prefer yarn or pnpm
+npm-shrinkwrap.json # managed by npm
