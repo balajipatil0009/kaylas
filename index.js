@@ -78,16 +78,16 @@ app.post("/kylas-webhook", async (req, res) => {
 
         console.log("Webhook received:", payload.event);
 
-        // 🔹 1. Handle Lead Created
-        if (payload.event === "lead.created") {
+        // 🔹 1. Handle Lead Events (Created or Updated)
+        if (payload.event === "lead.created" || payload.event === "lead.updated") {
             const lead = payload.data;
-            console.log(`Processing New Lead: ${lead.first_name} ${lead.last_name} (ID: ${lead.lead_id})`);
+            console.log(`Processing Lead Event (${payload.event}): ${lead.first_name} ${lead.last_name} (ID: ${lead.lead_id})`);
 
             await storeToSupabase(lead);
         }
 
         // 🔹 2. Handle Deal Updated
-        if (payload.event === "deal.updated") {
+        else if (payload.event === "deal.updated") {
             const deal = payload.data;
 
             const stage = deal.stage?.toLowerCase();
@@ -117,7 +117,15 @@ app.post("/kylas-webhook", async (req, res) => {
                 }
 
                 console.log(`✅ Deal ${deal.deal_id} stored/updated successfully`);
+            } else {
+                console.log(`ℹ️ Deal stage '${stage}' not tracked. Skipping.`);
             }
+        }
+
+        // 🔹 3. Handle Other Events (Log & Leave)
+        else {
+            console.log("⚠️ Unhandled Event:", payload.event);
+            console.log("Payload State:", JSON.stringify(payload, null, 2));
         }
 
         return res.status(200).json({ status: "success" });
