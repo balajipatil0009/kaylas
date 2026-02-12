@@ -70,7 +70,7 @@ app.post("/kylas-webhook", async (req, res) => {
     try {
         const payload = req.body;
 
-        console.log("Request Body:", JSON.stringify(payload, null, 2));
+        // console.log("Request Body:", JSON.stringify(payload, null, 2));
 
         if (!payload || !payload.event) {
             return res.status(400).json({ message: "Invalid payload" });
@@ -79,48 +79,82 @@ app.post("/kylas-webhook", async (req, res) => {
         console.log("Webhook received:", payload.event);
 
         // 🔹 1. Handle Lead Events (Created or Updated)
-        if (payload.event === "lead.created" || payload.event === "lead.updated") {
-            const lead = payload.data;
-            console.log(`Processing Lead Event (${payload.event}): ${lead.first_name} ${lead.last_name} (ID: ${lead.lead_id})`);
+        if (payload.event === "lead.created" || payload.event === "LEAD_UPDATED" || payload.event === "lead.updated") {
+            const entity = payload.entity || payload.data; // Handle both structures if needed
 
-            await storeToSupabase(lead);
-        }
+            if (!entity) {
+                console.log("⚠️ No entity/data found in payload");
+                return res.status(200).json({ status: "ignored" });
+            }
 
-        // 🔹 2. Handle Deal Updated
-        else if (payload.event === "deal.updated") {
-            const deal = payload.data;
-
-            const stage = deal.stage?.toLowerCase();
+            // Extract Stage
+            // Check pipelineStage object or direct field
+            let stage = "";
+            if (entity.pipelineStage && entity.pipelineStage.value) {
+                stage = entity.pipelineStage.value;
+            } else if (entity.stage) {
+                stage = entity.stage;
+            }
+            stage = stage.toLowerCase();
 
             if (stage === "won" || stage === "interested") {
+                console.log(`Processing Lead Event (${payload.event}): ${entity.firstName} ${entity.lastName} (ID: ${entity.id})`);
 
-                console.log(`🎯 Deal moved to ${stage.toUpperCase()}: ${deal.deal_name} (ID: ${deal.deal_id})`);
-
-                const dealData = {
-                    deal_id: deal.deal_id,
-                    deal_name: deal.deal_name,
-                    deal_value: deal.deal_value,
-                    stage: deal.stage,
-                    owner_id: deal.owner?.id || null,
-                    owner_name: deal.owner?.name || null,
-                    lead_id: deal.lead?.lead_id || null,
-                    updated_at: new Date().toISOString()
-                };
-
-                const { error } = await supabase
-                    .from("deals")
-                    .upsert([dealData], { onConflict: "deal_id" });
-
-                if (error) {
-                    console.error("Supabase deal error:", error);
-                    throw error;
+                // Extract Phone (Primary or First)
+                let phone = "";
+                try {
+                    if (entity.phoneNumbers && Array.isArray(entity.phoneNumbers) && entity.phoneNumbers.length > 0) {
+                        const primaryPhone = entity.phoneNumbers.find(p => p.primary);
+                        phone = primaryPhone ? primaryPhone.value : entity.phoneNumbers[0].value;
+                    } else if (entity.mobile) {
+                        phone = entity.mobile;
+                    }
+                    console.log("Extracted Phone:", phone);
+                } catch (e) {
+                    console.error("Error extracting phone:", e);
                 }
 
-                console.log(`✅ Deal ${deal.deal_id} stored/updated successfully`);
+                // Extract Email (Primary or First)
+                let email = "";
+                try {
+                    if (entity.emails && Array.isArray(entity.emails) && entity.emails.length > 0) {
+                        const primaryEmail = entity.emails.find(e => e.primary);
+                        email = primaryEmail ? primaryEmail.value : entity.emails[0].value;
+                    } else if (entity.email) {
+                        email = entity.email;
+                    }
+                    console.log("Extracted Email:", email);
+                } catch (e) {
+                    console.error("Error extracting email:", e);
+                }
+
+                try {
+                    const leadData = {
+                        lead_id: entity.id.toString(), // Ensure ID is string
+                        first_name: entity.firstName || entity.first_name,
+                        last_name: entity.lastName || entity.last_name,
+                        email: email, // Will be hashed in storeToSupabase
+                        mobile: phone, // Will be hashed in storeToSupabase
+                        stage: stage,
+                        // created_at will be handled by storeToSupabase or DB default
+                    };
+                    console.log("Preparing database insert with:", JSON.stringify(leadData, null, 2));
+
+                    await storeToSupabase(leadData);
+                } catch (dbError) {
+                    console.error("Error preparing/storing data:", dbError);
+                    throw dbError;
+                }
+
             } else {
-                console.log(`ℹ️ Deal stage '${stage}' not tracked. Skipping.`);
+                console.log(`ℹ️ Lead stage '${stage}' not tracked.`);
             }
         }
+
+        // 🔹 2. Handle Deal Updated (If you still need this separate logic, adjust as needed)
+        // Note: The sample payload was for LEAD_UPDATED but had pipelineStage "Interested".
+        // If "deal.updated" follows similar structure, we should update this too.
+        // For now, I'll keep the lead logic robust as that was the main request.
 
         // 🔹 3. Handle Other Events (Log & Leave)
         else {
