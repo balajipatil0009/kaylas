@@ -1,1 +1,2 @@
 {"event":"lead.created","timestamp":"2026-02-12T10:00:00Z","data":{"lead_id":"123456","first_name":"Rahul","last_name":"Sharma","email":"rahul@email.com","mobile":"9876543210","stage":"New Lead"}}
+{"event":"lead.created","timestamp":"2026-02-12T10:00:00Z","data":{"lead_id":"123456","first_name":"Rahul","last_name":"Sharma","email":"rahul@email.com","mobile":"9876543210","stage":"New Lead"}}
