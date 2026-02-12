@@ -1,6 +1,5 @@
 require("dotenv").config();
 const express = require("express");
-
 const crypto = require("crypto");
 const { createClient } = require("@supabase/supabase-js");
 
@@ -70,36 +69,64 @@ async function storeToSupabase(lead) {
 app.post("/kylas-webhook", async (req, res) => {
     try {
         const payload = req.body;
+
         console.log("Request Body:", JSON.stringify(payload, null, 2));
 
-        // Basic validation
         if (!payload || !payload.event) {
             return res.status(400).json({ message: "Invalid payload" });
         }
 
         console.log("Webhook received:", payload.event);
 
-
-        // Handle specific events
+        // 🔹 1. Handle Lead Created
         if (payload.event === "lead.created") {
             const lead = payload.data;
 
-            console.log("New Lead:");
-            console.log("Name:", lead.first_name, lead.last_name);
-            console.log("Email:", lead.email);
-            console.log("Mobile:", lead.mobile);
-
-            // Store to Supabase with hashed email and phone
             await storeToSupabase(lead);
         }
 
-        res.status(200).json({ status: "success" });
+        // 🔹 2. Handle Deal Updated
+        if (payload.event === "deal.updated") {
+            const deal = payload.data;
+
+            const stage = deal.stage?.toLowerCase();
+
+            if (stage === "won" || stage === "interested") {
+
+                console.log(`🎯 Deal moved to ${stage.toUpperCase()}`);
+
+                const dealData = {
+                    deal_id: deal.deal_id,
+                    deal_name: deal.deal_name,
+                    deal_value: deal.deal_value,
+                    stage: deal.stage,
+                    owner_id: deal.owner?.id || null,
+                    owner_name: deal.owner?.name || null,
+                    lead_id: deal.lead?.lead_id || null,
+                    updated_at: new Date().toISOString()
+                };
+
+                const { error } = await supabase
+                    .from("deals")
+                    .upsert([dealData], { onConflict: "deal_id" });
+
+                if (error) {
+                    console.error("Supabase deal error:", error);
+                    throw error;
+                }
+
+                console.log("✅ Deal stored/updated successfully");
+            }
+        }
+
+        return res.status(200).json({ status: "success" });
 
     } catch (error) {
         console.error("Webhook error:", error);
-        res.status(500).json({ message: "Server error" });
+        return res.status(500).json({ message: "Server error" });
     }
 });
+
 
 // Health check route
 app.get("/", (req, res) => {
