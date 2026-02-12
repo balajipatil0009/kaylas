@@ -56,7 +56,7 @@ async function storeToSupabase(lead) {
             throw error;
         }
 
-        console.log("✅ Lead stored successfully in Supabase");
+        console.log(`✅ Lead ${lead.lead_id} stored successfully in Supabase`);
         return data;
 
     } catch (error) {
@@ -81,6 +81,7 @@ app.post("/kylas-webhook", async (req, res) => {
         // 🔹 1. Handle Lead Created
         if (payload.event === "lead.created") {
             const lead = payload.data;
+            console.log(`Processing New Lead: ${lead.first_name} ${lead.last_name} (ID: ${lead.lead_id})`);
 
             await storeToSupabase(lead);
         }
@@ -93,7 +94,7 @@ app.post("/kylas-webhook", async (req, res) => {
 
             if (stage === "won" || stage === "interested") {
 
-                console.log(`🎯 Deal moved to ${stage.toUpperCase()}`);
+                console.log(`🎯 Deal moved to ${stage.toUpperCase()}: ${deal.deal_name} (ID: ${deal.deal_id})`);
 
                 const dealData = {
                     deal_id: deal.deal_id,
@@ -115,7 +116,7 @@ app.post("/kylas-webhook", async (req, res) => {
                     throw error;
                 }
 
-                console.log("✅ Deal stored/updated successfully");
+                console.log(`✅ Deal ${deal.deal_id} stored/updated successfully`);
             }
         }
 
