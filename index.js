@@ -12,18 +12,6 @@ const supabase = createClient(
     process.env.SUPABASE_ANON_KEY
 );
 
-// Keep process alive for debugging
-setInterval(() => { }, 1000 * 60 * 60);
-
-// Global Error Handlers
-process.on('uncaughtException', (err) => {
-    console.error('UNCAUGHT EXCEPTION:', err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('UNHANDLED REJECTION:', reason);
-});
-
 // Middleware to parse JSON
 app.use(express.json());
 
