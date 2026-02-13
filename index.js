@@ -170,7 +170,17 @@ app.post("/kylas-webhook", async (req, res) => {
             stage = stage.toLowerCase();
 
             if (stage === "won" || stage === "interested") {
-                console.log(`Processing Lead Event(${payload.event}): ${entity.firstName} ${entity.lastName} (ID: ${entity.id})`);
+                console.log(`Processing Lead Event (${payload.event}): ${entity.firstName} ${entity.lastName} (ID: ${entity.id})`);
+
+                // 🔹 Source Filter: Only process Facebook leads
+                // Check if 'source' exists and its value is 'Facebook'
+                const leadSource = entity.source ? entity.source.value : "";
+
+                // You can add more sources here if needed, e.g. ["Facebook", "Instagram"].includes(leadSource)
+                if (leadSource !== "Facebook") {
+                    console.log(`ℹ️ Skipping Lead. Source is '${leadSource}', not 'Facebook'.`);
+                    return res.status(200).json({ status: "skipped_source" });
+                }
 
                 // Extract Phone (Primary or First)
                 let phone = "";
