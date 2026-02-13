@@ -118,6 +118,8 @@ async function sendToMetaCAPI(lead, eventName) {
         if (META_TEST_CODE) {
             payload.test_event_code = META_TEST_CODE;
             console.log(`🧪 Sending as Test Event: ${META_TEST_CODE}`);
+            console.log(payload);
+
         }
 
         const url = `https://graph.facebook.com/v18.0/${META_PIXEL_ID}/events?access_token=${META_ACCESS_TOKEN}`;
@@ -222,9 +224,9 @@ app.post("/kylas-webhook", async (req, res) => {
                 try {
                     let eventName = "Lead"; // Default
                     if (stage === "won") {
-                        eventName = "Qualified Lead"; // Or 'Purchase' if revenue associated
+                        eventName = "Purchase"; // Or 'Purchase' if revenue associated
                     } else if (stage === "interested") {
-                        eventName = "Lead";
+                        eventName = "Schedule";
                     }
 
                     await sendToMetaCAPI({
