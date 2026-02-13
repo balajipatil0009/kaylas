@@ -2,9 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const crypto = require("crypto");
 const { createClient } = require("@supabase/supabase-js");
+const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Meta Configuration
+const META_PIXEL_ID = process.env.META_PIXEL_ID;
+const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -22,7 +27,9 @@ app.use(express.json());
  */
 function hashSHA256(data) {
     if (!data) return null;
-    return crypto.createHash("sha256").update(data).digest("hex");
+    // Normalize data: lowercase and trim whitespace
+    const normalizedData = data.trim().toLowerCase();
+    return crypto.createHash("sha256").update(normalizedData).digest("hex");
 }
 
 /**
@@ -68,6 +75,59 @@ async function storeToSupabase(lead) {
 }
 
 // Webhook route
+/**
+ * Send event to Meta Conversions API
+ * @param {object} lead - The lead data
+ * @param {string} eventName - The name of the event (e.g., 'Lead', 'Qualified Lead')
+ */
+async function sendToMetaCAPI(lead, eventName) {
+    if (!META_PIXEL_ID || !META_ACCESS_TOKEN) {
+        console.warn("⚠️ Meta Pixel ID or Access Token missing. Skipping CAPI event.");
+        return;
+    }
+
+    try {
+        // Prepare User Data (Hashed)
+        const emailHash = hashSHA256(lead.email);
+        const phoneHash = hashSHA256(lead.mobile);
+
+        const payload = {
+            data: [
+                {
+                    event_name: eventName,
+                    event_time: Math.floor(Date.now() / 1000),
+                    action_source: "website",
+                    event_id: lead.lead_id, // Deduplication ID
+                    user_data: {
+                        em: emailHash,
+                        ph: phoneHash,
+                        fn: hashSHA256(lead.first_name),
+                        ln: hashSHA256(lead.last_name)
+                    },
+                    custom_data: {
+                        lead_stage: lead.stage,
+                        value: lead.stage === 'won' ? 100 : 0,
+                        currency: "INR"
+                    }
+                }
+            ]
+        };
+
+        const url = `https://graph.facebook.com/v18.0/${META_PIXEL_ID}/events?access_token=${META_ACCESS_TOKEN}`;
+
+        const response = await axios.post(url, payload);
+        console.log(`✅ Sent '${eventName}' event to Meta CAPI for Lead ${lead.lead_id}`);
+
+    } catch (error) {
+        console.error("❌ Error sending to Meta CAPI:");
+        if (error.response) {
+            console.error(JSON.stringify(error.response.data, null, 2));
+        } else {
+            console.error(error.message);
+        }
+    }
+}
+
 app.post("/kylas-webhook", async (req, res) => {
     try {
         const payload = req.body;
@@ -100,7 +160,7 @@ app.post("/kylas-webhook", async (req, res) => {
             stage = stage.toLowerCase();
 
             if (stage === "won" || stage === "interested") {
-                console.log(`Processing Lead Event (${payload.event}): ${entity.firstName} ${entity.lastName} (ID: ${entity.id})`);
+                console.log(`Processing Lead Event(${payload.event}): ${entity.firstName} ${entity.lastName} (ID: ${entity.id})`);
 
                 // Extract Phone (Primary or First)
                 let phone = "";
@@ -125,6 +185,8 @@ app.post("/kylas-webhook", async (req, res) => {
                     } else if (entity.email) {
                         email = entity.email;
                     }
+
+
                     console.log("Extracted Email:", email);
                 } catch (e) {
                     console.error("Error extracting email:", e);
@@ -146,6 +208,28 @@ app.post("/kylas-webhook", async (req, res) => {
                 } catch (dbError) {
                     console.error("Error preparing/storing data:", dbError);
                     throw dbError;
+                }
+
+                // 🔹 Send to Meta Conversions API
+                try {
+                    let eventName = "Lead"; // Default
+                    if (stage === "won") {
+                        eventName = "Qualified Lead"; // Or 'Purchase' if revenue associated
+                    } else if (stage === "interested") {
+                        eventName = "Lead";
+                    }
+
+                    await sendToMetaCAPI({
+                        lead_id: entity.id.toString(),
+                        first_name: entity.firstName || entity.first_name,
+                        last_name: entity.lastName || entity.last_name,
+                        email: email,
+                        mobile: phone,
+                        stage: stage
+                    }, eventName);
+
+                } catch (capiError) {
+                    console.error("Error in CAPI step:", capiError);
                 }
 
             } else {
@@ -179,5 +263,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on port ${PORT} `);
 });
