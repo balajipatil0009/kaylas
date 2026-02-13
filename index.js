@@ -124,6 +124,7 @@ async function sendToMetaCAPI(lead, eventName) {
 
         const response = await axios.post(url, payload);
         console.log(`✅ Sent '${eventName}' event to Meta CAPI for Lead ${lead.lead_id}`);
+        console.log(response.data);
 
     } catch (error) {
         console.error("❌ Error sending to Meta CAPI:");
@@ -148,7 +149,7 @@ app.post("/kylas-webhook", async (req, res) => {
         console.log("Webhook received:", payload.event);
 
         // 🔹 1. Handle Lead Events (Created or Updated)
-        if (payload.event === "lead.created" || payload.event === "LEAD_UPDATED" || payload.event === "lead.updated") {
+        if (payload.event === "LEAD_UPDATED" || payload.event === "lead.updated") {
             const entity = payload.entity || payload.data; // Handle both structures if needed
 
             if (!entity) {
