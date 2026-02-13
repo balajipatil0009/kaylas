@@ -118,7 +118,7 @@ async function sendToMetaCAPI(lead, eventName) {
         if (META_TEST_CODE) {
             payload.test_event_code = META_TEST_CODE;
             console.log(`🧪 Sending as Test Event: ${META_TEST_CODE}`);
-            console.log(payload);
+            console.log(JSON.stringify(payload));
 
         }
 
